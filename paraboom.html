@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PARABOOM - Ular Tangga Fisika</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet" />
+    <style>
+        * { font-family: 'Poppins', sans-serif; }
+        body { min-height: 100vh; margin: 0; background: radial-gradient(circle at top, #dbeafe 0%, #e9f5ff 40%, #86efac 100%); }
+        .glass { background: rgba(255,255,255,0.9); backdrop-filter: blur(16px); border: 3px solid #000; box-shadow: 10px 10px 0 rgba(0,0,0,0.15); }
+        .board-grid { display: grid; grid-template-columns: repeat(8, minmax(44px,1fr)); gap: 4px; }
+        .board-cell { position: relative; aspect-ratio: 1 / 1; border: 2px solid #000; border-radius: 0.75rem; background: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%); display: flex; align-items: flex-start; justify-content: space-between; padding: 6px; font-size: 0.8rem; font-weight: 700; }
+        .board-cell.current { border-color: #f97316; background: linear-gradient(180deg, #fef3c7 0%, #fde68a 100%); }
+        .board-cell.finish { background: linear-gradient(180deg, #a7f3d0 0%, #6ee7b7 100%); }
+        .board-label { z-index: 1; }
+        .board-icon { position: absolute; bottom: 4px; right: 4px; width: 22px; height: 22px; display: grid; place-items: center; font-size: 1rem; }
+        .board-cell.boom { background: radial-gradient(circle at top left, #fde68a 10%, #f87171 100%); }
+        .board-cell.challenge { background: radial-gradient(circle at top left, #93c5fd 10%, #3b82f6 100%); color: white; }
+        .board-cell.slide { background: radial-gradient(circle at top left, #c7d2fe 10%, #818cf8 100%); color: white; }
+        .board-cell.cannon { background: radial-gradient(circle at top left, #fdba74 10%, #fb923c 100%); color: white; }
+        .board-cell.lamp { background: radial-gradient(circle at top left, #fce7f3 10%, #f472b6 100%); color: white; }
+        .modal-backdrop { position: fixed; inset: 0; background: rgba(15,23,42,0.55); display: none; align-items: center; justify-content: center; padding: 1.5rem; z-index: 50; }
+        .modal-backdrop.active { display: flex; }
+        .modal-box { width: 100%; max-width: 520px; background: white; border: 4px solid #000; border-radius: 1.25rem; padding: 1.5rem; box-shadow: 12px 12px 0 rgba(0,0,0,0.14); }
+        .btn { font-weight: 800; border: 3px solid #000; border-radius: 0.85rem; padding: 0.95rem 1.5rem; cursor: pointer; transition: transform 0.1s ease; }
+        .btn:active { transform: translateY(2px); }
+        .btn-primary { background: #14b8a6; color: white; }
+        .btn-secondary { background: #fbbf24; color: #111; }
+        .btn-danger { background: #ef4444; color: white; }
+        .shadow-soft { box-shadow: 0 10px 30px rgba(15,23,42,0.12); }
+        .icon-sm { width: 1.4rem; height: 1.4rem; display: inline-grid; place-items: center; }
+        .stats-card { border: 3px solid #000; border-radius: 1rem; background: #f8fafc; padding: 1rem; }
+        .fact-box { border: 3px dashed #0f172a; border-radius: 1rem; padding: 1rem; background: #f8fafc; }
+    </style>
+</head>
+<body>
+    <div class="min-h-screen px-4 py-8 md:px-10">
+        <div class="max-w-7xl mx-auto space-y-6">
+            <header class="glass p-6 rounded-3xl text-center">
+                <h1 class="text-4xl md:text-5xl font-black tracking-tight">PARABOOM</h1>
+                <p class="mt-3 text-base md:text-lg text-slate-700">Game Ular Tangga Fisika bergaya papan untuk pelajar, lengkap dengan tantangan BOOM, TANTANGAN, lampu fakta, meriam, dan perosotan.</p>
+                <div class="mt-4 flex flex-col gap-3 items-center justify-center md:flex-row md:gap-4">
+                    <a href="dashboard.html" class="btn btn-secondary">Leaderboard</a>
+                    <a href="index.html" class="btn btn-primary">Kembali ke Menu</a>
+                </div>
+            </header>
+
+            <section class="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+                <div class="glass p-6 rounded-3xl shadow-soft">
+                    <div id="screen-start">
+                        <h2 class="text-2xl font-bold mb-4">Masukkan Nama & Sekolah</h2>
+                        <div class="grid gap-4">
+                            <label class="block">
+                                <span class="block text-sm font-semibold mb-2">Nama Pemain</span>
+                                <input id="name-input" type="text" placeholder="Contoh: Aulia" class="w-full border-2 border-black rounded-2xl px-4 py-3 text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-slate-500" />
+                            </label>
+                            <label class="block">
+                                <span class="block text-sm font-semibold mb-2">Nama Sekolah</span>
+                                <input id="school-input" type="text" placeholder="Contoh: SMA Negeri 1" class="w-full border-2 border-black rounded-2xl px-4 py-3 text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-slate-500" />
+                            </label>
+                            <button id="start-button" class="btn btn-primary w-full text-lg" disabled>Mulai Permainan</button>
+                        </div>
+
+                        <div class="mt-8 bg-slate-100 border-2 border-black rounded-3xl p-4">
+                            <h3 class="font-black mb-3">Aturan Singkat</h3>
+                            <ol class="list-decimal list-inside text-sm space-y-2 text-slate-700">
+                                <li>Mulai dari START.</li>
+                                <li>Tekan tombol Dadu untuk maju 1-6 langkah.</li>
+                                <li>Jika berhenti di kotak BOOM, jawab soal BOOM.</li>
+                                <li>Jika berhenti di kotak TANTANGAN, pilih jawab sendiri atau tantang tim lawan.</li>
+                                <li>Kotak MERIAM membawa kamu maju, kotak PEROSOTAN menurunkan posisi.</li>
+                                <li>Kotak lampu memberi fakta fisika.</li>
+                                <li>Pemain pertama mencapai FINISH menjadi pemenang.</li>
+                            </ol>
+                        </div>
+                    </div>
+
+                    <div id="screen-game" class="hidden">
+                        <div class="grid gap-4 sm:grid-cols-2 mb-4">
+                            <div class="stats-card">
+                                <div class="text-xs uppercase tracking-[0.2em] text-slate-500">Nama</div>
+                                <div id="display-name" class="text-xl font-extrabold mt-1">-</div>
+                                <div class="text-xs uppercase tracking-[0.2em] text-slate-500 mt-3">Sekolah</div>
+                                <div id="display-school" class="text-lg font-semibold mt-1">-</div>
+                            </div>
+                            <div class="stats-card grid gap-3">
+                                <div>
+                                    <div class="text-xs uppercase tracking-[0.2em] text-slate-500">Skor</div>
+                                    <div id="display-score" class="text-3xl font-extrabold text-emerald-600">0</div>
+                                </div>
+                                <div>
+                                    <div class="text-xs uppercase tracking-[0.2em] text-slate-500">Posisi</div>
+                                    <div id="display-position" class="text-3xl font-extrabold text-slate-900">START</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="glass p-4 rounded-3xl border-black border-2 mb-4">
+                            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                <div>
+                                    <div class="text-sm uppercase tracking-[0.2em] text-slate-500">Giliran</div>
+                                    <div id="roll-result" class="text-3xl font-black text-slate-900">-</div>
+                                </div>
+                                <button id="roll-button" class="btn btn-secondary text-lg">Lempar Dadu</button>
+                            </div>
+                            <p class="mt-3 text-sm text-slate-600">Gunakan dadu untuk maju. Setiap kotak khusus memicu efek BOOM, TANTANGAN, MERIAM, PEROSOTAN, atau LAMPU.</p>
+                        </div>
+
+                        <div class="grid gap-4 lg:grid-cols-[1.4fr_0.6fr]">
+                            <div class="glass p-4 rounded-3xl border-black border-2">
+                                <div class="board-grid" id="game-board"></div>
+                            </div>
+                            <div class="space-y-4">
+                                <div class="stats-card">
+                                    <h3 class="font-black mb-3">Status Terakhir</h3>
+                                    <div id="status-log" class="text-sm leading-6 text-slate-700">Siap memulai game.</div>
+                                </div>
+                                <div class="stats-card">
+                                    <h3 class="font-black mb-3">Info Khusus</h3>
+                                    <div class="text-sm text-slate-700 space-y-2">
+                                        <p><span class="font-black">💥 BOOM:</span> Ambil kartu BOOM dan jawab soal.</p>
+                                        <p><span class="font-black">🏋️ TANTANGAN:</span> Jawab sendiri atau tantang lawan.</p>
+                                        <p><span class="font-black">🚀 MERIAM:</span> Naik mengikuti lintasan.</p>
+                                        <p><span class="font-black">🪤 PEROSOTAN:</span> Turun ke posisi lebih rendah.</p>
+                                        <p><span class="font-black">💡 LAMPU:</span> Baca kartu fakta fisika.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <aside class="glass p-6 rounded-3xl shadow-soft">
+                    <div class="mb-6">
+                        <h3 class="text-2xl font-black mb-3">Leaderboard Mini</h3>
+                        <div id="leaderboard-mini" class="space-y-3 text-sm text-slate-700">
+                            <p class="italic">Memuat skor terbaik...</p>
+                        </div>
+                    </div>
+                    <div class="fact-box">
+                        <h3 class="font-black mb-3">Fakta Parabola</h3>
+                        <p id="fact-card" class="text-sm text-slate-700">Di kotak lampu, kamu akan belajar fakta fisika dengan cepat.</p>
+                    </div>
+                </aside>
+            </section>
+        </div>
+    </div>
+
+    <div id="modal" class="modal-backdrop" onclick="closeModal()">
+        <div class="modal-box" onclick="event.stopPropagation()">
+            <div class="space-y-4">
+                <div>
+                    <h2 id="modal-title" class="text-xl font-black">Judul</h2>
+                    <p id="modal-description" class="text-sm text-slate-700 mt-2"></p>
+                </div>
+                <div id="modal-content" class="space-y-3"></div>
+                <div class="flex flex-col gap-3 sm:flex-row sm:justify-end">
+                    <button id="modal-close" class="btn btn-secondary" onclick="closeModal()">Tutup</button>
+                    <button id="modal-action" class="btn btn-primary hidden" onclick="modalAction()">Lanjut</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="firebase-config.js"></script>
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
+        import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
+        import { getFirestore, collection, addDoc, query, orderBy, limit, getDocs } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
+
+        const state = {
+            name: '',
+            school: '',
+            position: 1,
+            score: 0,
+            roll: 0,
+            finished: false,
+            userId: 'offline',
+            db: null,
+            questionPending: null,
+            lastStatus: 'Siap memulai game.',
+            boardSize: 48,
+            special: {},
+            lastEvent: '',
+            leaderboardEntries: []
+        };
+
+        const questions = {
+            boom: [
+                {
+                    question: 'Apa rumus momentum linear?',
+                    choices: ['p = m + v', 'p = m × v', 'p = v / m'],
+                    answer: 1,
+                    explanation: 'Momentum linear dihitung dengan p = m × v.'
+                },
+                {
+                    question: 'Jika massa benda 2 kg dan kecepatan 3 m/s, momentum benda adalah …',
+                    choices: ['2', '3', '6'],
+                    answer: 2,
+                    explanation: 'Momentum = m × v = 2 × 3 = 6 kg·m/s.'
+                },
+                {
+                    question: 'Impuls sama dengan …',
+                    choices: ['Perubahan momentum', 'Daya kerja', 'Energi kinetik'],
+                    answer: 0,
+                    explanation: 'Impuls sama dengan perubahan momentum (Δp).'
+                }
+            ],
+            challenge: [
+                {
+                    question: 'Benar atau salah: Momentum benda selalu bertambah jika kecepatannya naik.',
+                    choices: ['Benar', 'Salah'],
+                    answer: 0,
+                    explanation: 'Jika massa konstan, momentum bertambah jika kecepatan naik.'
+                },
+                {
+                    question: 'Jika gaya 5 N bekerja selama 2 s, besar impulsnya adalah …',
+                    choices: ['7', '10', '3'],
+                    answer: 1,
+                    explanation: 'Impuls = gaya × waktu = 5 × 2 = 10 N·s.'
+                },
+                {
+                    question: 'Hukum kekekalan momentum berlaku jika …',
+                    choices: ['Tidak ada gaya luar total', 'Ada gaya luar kuat', 'Massa berubah cepat'],
+                    answer: 0,
+                    explanation: 'Momentum total kekal jika tidak ada gaya luar total.'
+                }
+            ]
+        };
+
+        const boardEvents = {
+            4: { type: 'lamp', text: 'Ambil kartu fakta: Parabola adalah lintasan benda ketika hanya gaya berat bekerja.' },
+            5: { type: 'boom' },
+            8: { type: 'challenge' },
+            10: { type: 'cannon', dest: 16 },
+            12: { type: 'boom' },
+            14: { type: 'slide', dest: 9 },
+            18: { type: 'challenge' },
+            20: { type: 'cannon', dest: 28 },
+            21: { type: 'boom' },
+            24: { type: 'slide', dest: 17 },
+            29: { type: 'lamp', text: 'Kartu fakta: Sudut datang dan sudut pantul adalah konsep penting pada pantulan gerak parabola.' },
+            30: { type: 'challenge' },
+            31: { type: 'cannon', dest: 38 },
+            32: { type: 'boom' },
+            33: { type: 'slide', dest: 26 },
+            37: { type: 'lamp', text: 'Kartu fakta: Kecepatan horizontal pada parabola tetap konstan jika hambatan diabaikan.' },
+            39: { type: 'cannon', dest: 46 },
+            41: { type: 'boom' },
+            44: { type: 'slide', dest: 35 },
+            45: { type: 'challenge' }
+        };
+
+        const boardOrder = Array.from({ length: state.boardSize }, (_, i) => i + 1);
+
+        const nameInput = document.getElementById('name-input');
+        const schoolInput = document.getElementById('school-input');
+        const startButton = document.getElementById('start-button');
+        const screenStart = document.getElementById('screen-start');
+        const screenGame = document.getElementById('screen-game');
+        const rollButton = document.getElementById('roll-button');
+        const gameBoard = document.getElementById('game-board');
+        const displayName = document.getElementById('display-name');
+        const displaySchool = document.getElementById('display-school');
+        const displayScore = document.getElementById('display-score');
+        const displayPosition = document.getElementById('display-position');
+        const rollResult = document.getElementById('roll-result');
+        const statusLog = document.getElementById('status-log');
+        const leaderboardMini = document.getElementById('leaderboard-mini');
+        const factCard = document.getElementById('fact-card');
+        const modal = document.getElementById('modal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalDescription = document.getElementById('modal-description');
+        const modalContent = document.getElementById('modal-content');
+        const modalAction = document.getElementById('modal-action');
+        const modalClose = document.getElementById('modal-close');
+
+        function updateStartButton() {
+            const valid = nameInput.value.trim().length > 0 && schoolInput.value.trim().length > 0;
+            startButton.disabled = !valid;
+            startButton.classList.toggle('opacity-50', !valid);
+        }
+
+        nameInput.addEventListener('input', updateStartButton);
+        schoolInput.addEventListener('input', updateStartButton);
+
+        startButton.addEventListener('click', () => {
+            state.name = nameInput.value.trim();
+            state.school = schoolInput.value.trim();
+            startGame();
+        });
+
+        rollButton.addEventListener('click', () => {
+            if (state.finished || state.questionPending) return;
+            rollDice();
+        });
+
+        async function loadFirebase() {
+            if (!window.__firebase_config) {
+                updateLeaderboardMiniOffline();
+                return;
+            }
+            try {
+                const firebaseConfig = JSON.parse(window.__firebase_config);
+                const app = initializeApp(firebaseConfig);
+                const auth = getAuth(app);
+                const user = await signInAnonymously(auth);
+                state.userId = user.user.uid;
+                state.db = getFirestore(app);
+            } catch (error) {
+                console.warn('Firebase tidak tersedia:', error);
+            }
+            await loadLeaderboardMini();
+        }
+
+        async function loadLeaderboardMini() {
+            if (!state.db) {
+                return updateLeaderboardMiniOffline();
+            }
+            try {
+                const q = query(collection(state.db, 'artifacts', 'physics-adventure', 'public', 'data', 'leaderboard'), orderBy('score', 'desc'), limit(5));
+                const snap = await getDocs(q);
+                const items = [];
+                snap.forEach(doc => items.push(doc.data()));
+                state.leaderboardEntries = items;
+                renderLeaderboardMini();
+            } catch (error) {
+                console.warn('Gagal memuat leaderboard:', error);
+                updateLeaderboardMiniOffline();
+            }
+        }
+
+        function updateLeaderboardMiniOffline() {
+            leaderboardMini.innerHTML = '<p class="italic">Leaderboard tidak dapat dimuat. Mode offline.</p>';
+        }
+
+        function renderLeaderboardMini() {
+            if (!state.leaderboardEntries.length) {
+                leaderboardMini.innerHTML = '<p class="italic">Belum ada skor. Jadilah yang pertama!</p>';
+                return;
+            }
+            leaderboardMini.innerHTML = state.leaderboardEntries.map((entry, index) => {
+                return `<div class="flex items-start gap-3 p-3 rounded-3xl border border-slate-200 bg-white shadow-sm"><div class="font-black text-lg">${index+1}.</div><div class="text-sm"><div class="font-semibold">${entry.name}</div><div class="text-slate-500 text-xs">${entry.school || 'Sekolah tidak tercatat'}</div></div><div class="ml-auto text-slate-950 font-black">${entry.score}</div></div>`;
+            }).join('');
+        }
+
+        async function startGame() {
+            state.position = 1;
+            state.score = 0;
+            state.roll = 0;
+            state.finished = false;
+            state.questionPending = null;
+            state.lastEvent = '';
+            displayName.textContent = state.name;
+            displaySchool.textContent = state.school;
+            displayScore.textContent = state.score;
+            displayPosition.textContent = 'START';
+            rollResult.textContent = '-';
+            statusLog.textContent = 'Permainan dimulai. Siap melempar dadu!';
+            factCard.textContent = 'Berhenti di kotak lampu untuk membaca fakta fisika yang menarik.';
+            screenStart.classList.add('hidden');
+            screenGame.classList.remove('hidden');
+            renderBoard();
+            await loadFirebase();
+        }
+
+        function renderBoard() {
+            gameBoard.innerHTML = '';
+            const rows = 6;
+            const cols = 8;
+            const rowNumbers = [];
+            for (let row = rows - 1; row >= 0; row--) {
+                const start = row * cols + 1;
+                const end = start + cols - 1;
+                const rowCells = Array.from({ length: cols }, (_, i) => start + i);
+                if ((rows - row) % 2 === 0) rowCells.reverse();
+                rowCells.forEach(num => rowNumbers.push(num));
+            }
+            rowNumbers.forEach(number => {
+                const cell = document.createElement('div');
+                cell.className = 'board-cell';
+                if (number === state.position) cell.classList.add('current');
+                if (number === state.boardSize) cell.classList.add('finish');
+                const eventInfo = boardEvents[number];
+                if (eventInfo) cell.classList.add(eventInfo.type);
+                cell.innerHTML = `<span class="board-label">${number}</span>` + (eventInfo ? `<span class="board-icon">${iconFor(eventInfo.type)}</span>` : '');
+                gameBoard.appendChild(cell);
+            });
+        }
+
+        function iconFor(type) {
+            if (type === 'boom') return '💥';
+            if (type === 'challenge') return '🏋️';
+            if (type === 'slide') return '🪂';
+            if (type === 'cannon') return '🚀';
+            if (type === 'lamp') return '💡';
+            return '';
+        }
+
+        function rollDice() {
+            const result = Math.floor(Math.random() * 6) + 1;
+            state.roll = result;
+            state.position = Math.min(state.boardSize, state.position + result);
+            rollResult.textContent = result;
+            statusLog.textContent = `Kamu maju ${result} langkah ke kotak ${state.position}.`;
+            displayPosition.textContent = state.position === state.boardSize ? 'FINISH' : state.position;
+            renderBoard();
+            handleLanding();
+        }
+
+        function handleLanding() {
+            const eventInfo = boardEvents[state.position];
+            if (state.position === state.boardSize) {
+                finishGame();
+                return;
+            }
+            if (!eventInfo) {
+                statusLog.textContent = `Kotak biasa. Siap giliran berikutnya.`;
+                return;
+            }
+            state.lastEvent = eventInfo.type;
+            if (eventInfo.type === 'boom') {
+                showBoomQuestion();
+            } else if (eventInfo.type === 'challenge') {
+                showChallengeChoice();
+            } else if (eventInfo.type === 'lamp') {
+                showLampCard(eventInfo.text);
+            } else if (eventInfo.type === 'slide') {
+                state.position = eventInfo.dest;
+                statusLog.textContent = `Perosotan! Kamu turun ke kotak ${state.position}.`;
+                displayPosition.textContent = state.position;
+                renderBoard();
+            } else if (eventInfo.type === 'cannon') {
+                state.position = eventInfo.dest;
+                statusLog.textContent = `Meriam! Kamu melesat ke kotak ${state.position}.`;
+                displayPosition.textContent = state.position;
+                renderBoard();
+            }
+        }
+
+        function showModal(title, description, contentHtml = '', showAction = false, actionText = '', actionHandler = null) {
+            modalTitle.textContent = title;
+            modalDescription.textContent = description;
+            modalContent.innerHTML = contentHtml;
+            modal.classList.add('active');
+            if (showAction && actionHandler) {
+                modalAction.textContent = actionText;
+                modalAction.classList.remove('hidden');
+                modalAction.onclick = () => { actionHandler(); closeModal(); };
+            } else {
+                modalAction.classList.add('hidden');
+            }
+            modalClose.textContent = 'Tutup';
+        }
+
+        function closeModal() {
+            modal.classList.remove('active');
+        }
+
+        function showLampCard(text) {
+            state.score += 3;
+            displayScore.textContent = state.score;
+            statusLog.textContent = `Lampu fakta! ${text}`;
+            factCard.textContent = text;
+            showModal('Kartu Fakta', text, '<p class="text-slate-700">Kerjakan lagi giliran berikutnya.</p>');
+        }
+
+        function showBoomQuestion() {
+            const question = questions.boom[Math.floor(Math.random() * questions.boom.length)];
+            state.questionPending = { ...question, type: 'boom' };
+            const optionsHtml = question.choices.map((choice, index) => {
+                return `<button class="btn btn-secondary w-full text-left" onclick="selectAnswer(${index})">${choice}</button>`;
+            }).join('');
+            showModal('BOOM!', 'Kamu mendarat di kotak BOOM. Jawab soal berikut:', `<p class="font-semibold text-slate-900">${question.question}</p><div class="space-y-2 mt-4">${optionsHtml}</div>`);
+        }
+
+        function showChallengeChoice() {
+            state.questionPending = null;
+            showModal('TANTANGAN', 'Pilih salah satu opsi:', `<button class="btn btn-primary w-full text-left" onclick="answerChallengeSelf()">Jawab soal sendiri</button><button class="btn btn-secondary w-full text-left" onclick="challengeOpponent()">Lempar ke tim lawan</button>`);
+        }
+
+        function answerChallengeSelf() {
+            closeModal();
+            const question = questions.challenge[Math.floor(Math.random() * questions.challenge.length)];
+            state.questionPending = { ...question, type: 'challengeSelf' };
+            const optionsHtml = question.choices.map((choice, index) => {
+                return `<button class="btn btn-secondary w-full text-left" onclick="selectAnswer(${index})">${choice}</button>`;
+            }).join('');
+            showModal('TANTANGAN SENDIRI', 'Jawab soal berikut:', `<p class="font-semibold text-slate-900">${question.question}</p><div class="space-y-2 mt-4">${optionsHtml}</div>`);
+        }
+
+        function challengeOpponent() {
+            const success = Math.random() < 0.65;
+            if (success) {
+                state.score = Math.max(0, state.score - 1);
+                statusLog.textContent = 'Tim lawan menjawab benar! Mereka maju dan kamu mundur 1 langkah.';
+                state.position = Math.max(1, state.position - 1);
+                displayScore.textContent = state.score;
+                displayPosition.textContent = state.position;
+                renderBoard();
+                showModal('TANTANGAN LAWAN', 'Tim lawan menjawab benar. Kamu mundur 1 langkah.', '<p class="text-slate-700">Giliran selesai. Kembali ke papan.</p>');
+            } else {
+                state.score += 10;
+                statusLog.textContent = 'Tim lawan salah. Kamu maju 2 langkah sebagai bonus.';
+                state.position = Math.min(state.boardSize, state.position + 2);
+                displayScore.textContent = state.score;
+                displayPosition.textContent = state.position;
+                renderBoard();
+                showModal('TANTANGAN LAWAN', 'Tim lawan salah. Kamu maju 2 langkah dan mendapat skor tambahan.', '<p class="text-slate-700">Lanjutkan ke giliran berikutnya.</p>');
+                if (state.position === state.boardSize) finishGame();
+            }
+        }
+
+        window.selectAnswer = function(index) {
+            if (!state.questionPending) return;
+            const pending = state.questionPending;
+            const correct = index === pending.answer;
+            if (correct) {
+                state.score += 10;
+                state.position = Math.min(state.boardSize, state.position + 2);
+                state.lastEvent = pending.type === 'boom' ? 'BOOM benar' : 'TANTANGAN benar';
+                statusLog.textContent = `Jawaban benar! Kamu maju 2 langkah ke kotak ${state.position}.`;
+                displayScore.textContent = state.score;
+                displayPosition.textContent = state.position === state.boardSize ? 'FINISH' : state.position;
+                renderBoard();
+                closeModal();
+                if (state.position === state.boardSize) {
+                    finishGame();
+                    return;
+                }
+            } else {
+                state.score = Math.max(0, state.score - 1);
+                state.position = Math.max(1, state.position - 1);
+                state.lastEvent = pending.type === 'boom' ? 'BOOM salah' : 'TANTANGAN salah';
+                statusLog.textContent = `Jawaban salah. Kamu mundur 1 langkah ke kotak ${state.position}.`;
+                displayScore.textContent = state.score;
+                displayPosition.textContent = state.position;
+                renderBoard();
+                closeModal();
+            }
+            state.questionPending = null;
+        };
+
+        function finishGame() {
+            state.finished = true;
+            state.score += 50;
+            displayScore.textContent = state.score;
+            statusLog.textContent = 'Selamat! Kamu sampai di FINISH dan memenangkan PARABOOM.';
+            showModal('FINISH!', `Selamat ${state.name}! Kamu berhasil mencapai FINISH. Skor akhir: ${state.score}`, '<p class="text-slate-700">Skor akan disimpan ke leaderboard jika koneksi tersedia.</p>', false);
+            saveScore();
+        }
+
+        async function saveScore() {
+            if (!state.db) return;
+            try {
+                await addDoc(collection(state.db, 'artifacts', 'physics-adventure', 'public', 'data', 'leaderboard'), {
+                    name: state.name,
+                    school: state.school,
+                    score: state.score,
+                    position: state.position,
+                    finishedAt: new Date().toISOString()
+                });
+                await loadLeaderboardMini();
+            } catch (error) {
+                console.warn('Gagal menyimpan skor:', error);
+            }
+        }
+
+        function modalAction() {
+            closeModal();
+        }
+
+        window.closeModal = closeModal;
+
+        window.onload = () => {
+            updateStartButton();
+            loadFirebase();
+            renderBoard();
+        };
+    </script>
+</body>
+</html>
